@@ -16,7 +16,7 @@ def myNetwork():
                    build=False,
                    ipBase='10.0.0.0/8')
 
-    cantidad_sucursales = 6
+    cantidad_sucursales = 12
     info( '* Adding controller\n' )
     info( '* Add switches\n')
    
@@ -29,8 +29,6 @@ def myNetwork():
     for i in range(cantidad_sucursales):
         i = i + 1
         globals()['swan%s' %i] = net.addSwitch('swan%s' %i, cls=OVSKernelSwitch, failMode='standalone')
-
-   
     
     rcentral = net.addHost('rcentral', cls=Node, ip='')
     rcentral.cmd('sysctl -w net.ipv4.ip_forward=1')
@@ -52,47 +50,25 @@ def myNetwork():
     for i in range(cantidad_sucursales):
         i = i + 1
         globals()['h2suc%s' %i] = net.addHost('h2suc%s' %i, cls=Host, ip='10.0.%s.254/24' %i, defaultRoute=None)
+    print("esto es: ", globals()['h2suc2'])
+
 
     info( '* Add links\n')
     #Agregamos el link, ponemos nombre a la interfaz y le agregamos una IP.
     #Debe ir primero el router con la interfaz, luego el switch.
     #hay que poner nombres cortos en las interfaces sino te tira error.
-    net.addLink(rcentral,swan1, intfName1='rcentral1-eth0', params1={'ip':'192.168.100.6/29'})
-    net.addLink(rsuc1,swan1, intfName1='rsuc1-eth1', params1={'ip':'192.168.100.1/29'})
-    net.addLink(rsuc1,slan1, intfName1='rsuc1-eth0', params1={'ip':'10.0.1.1/24'})
-    net.addLink(globals()['h1suc1'],globals()['slan1'])
-    net.addLink(globals()['h2suc1'],globals()['slan1'])
-
-    #rcentral con swan
-    for i in range(cantidad_sucursales):
-        i = i + 1
-        rcdireccion = 6 + 6
-        net.addLink(rcentral,global()['swan%s' %i], intfName1='rcentral.eth%s' %i, params1={'ip': '192.168.100.%s/29' %rcdireccion})
    
-    #rsuc con wan
+    print("hola")
     for i in range(cantidad_sucursales):
-        i = i + 1
-        rcdireccion = 6 + 6
-        net.addLink(global()['rsuc%s' %i],global()['swan%s' %i], intfName1='rsuc-eth%s' %i, params1={'ip': '192.168.100.%s/29' %rcdireccion})
-    #rsuc con slan
-    for i in range(cantidad_sucursales):
-        i = i + 1
-        rcdireccion = 6 + 6
-        net.addLink(global()['rsuc%s' %i],global()['slan%s' %i], intfName1='rsuc-eth%s' %i, params1={'ip': '10.0.%s.1/24' %rcdireccion})
+        n = i + 1
+        rcdireccion = 6 + i*8
+        rsucdireccion = 1 + i*8
+        hdireccion = 1
+        net.addLink(rcentral,globals()['swan%s' %n], intfName1='rcentral.eth%s' %n, params1={'ip': '192.168.100.%s/29' %rcdireccion})
+        net.addLink(globals()['rsuc%s'%n],globals()['swan%s' %n], intfName1='r1.eth%s' %n, params1={'ip': '192.168.100.%s/29' %rsucdireccion})
+        net.addLink(globals()['rsuc%s'%n],globals()['slan%s' %n], intfName1='r%s.eth' %n, params1={'ip': '10.0.%s.1/24' %n})
+        net.addLink(globals()['h1suc%s'%n],globals()['slan%s' %n])
 
-    #slan con hosts
-    for i in range(cantidad_sucursales):
-        i = i + 1
-        rcdireccion = 6 + 6
-        net.addLink(global()['h1suc%s' %i],global()['slan%s' %i])
-
-
-
-    net.addLink(rcentral,swan2, intfName1='rcentral2-eth0', params1={'ip':'192.168.100.14/29'})
-    net.addLink(rsuc2,swan2, intfName1='rsuc2-eth1', params1={'ip':'192.168.100.9/29'})
-    net.addLink(rsuc2,slan2, intfName1='rsuc2-eth0', params1={'ip':'10.0.2.1/24'})
-    net.addLink(globals()['h1suc2'],globals()['slan2'])
-    net.addLink(globals()['h2suc2'],globals()['slan2'])
     
 
     info( '* Starting network\n')
@@ -102,37 +78,26 @@ def myNetwork():
         controller.start()
 
     info( '* Starting switches\n')
-    net.get('slan1').start([])
-    net.get('swan1').start([])
-    net.get('slan2').start([])
-    net.get('swan2').start([])
+    for i in range(cantidad_sucursales):
+        i = i + 1
+        net.get('slan%s'%i).start([])
+        net.get('swan%s'%i).start([])
+       
 
     info( '* Post configure switches and hosts\n')
 
     #Agregar tabla de ruteo
-    """
-    h1suc1.cmd('ip route add 0.0.0.0/0 via 10.0.1.1')
-    rsuc1.cmd('ip ro add 0.0.0.0/0 via 192.168.100.6')
-    rcentral.cmd('ip ro add 0.0.0.0/0 via 192.168.100.1')
-    """
-    h1suc1.cmd('ip route add 0.0.0.0/0 via 10.0.1.1')
-    h1suc2.cmd('ip route add 0.0.0.0/0 via 10.0.2.1')
-
-    rcentral.cmd('ip ro add 10.0.1.0/24 via 192.168.100.1')
-    rcentral.cmd('ip ro add 10.0.2.0/24 via 192.168.100.9')
-
-    """
-    esto esta mal porque yo quiero llegar a los hosts entonces debo poner ro add red de los hosts, no red de los routers...
-    si dejo esto asi, y hago ping de host1suc1 a host1suc2 me va a decir que no se puede conectar, pero la direccion la conoce.
-    rsuc1.cmd('ip ro add 192.168.100.8/29 via 192.168.100.6')
-    rsuc2.cmd('ip ro add 192.168.100.0/29 via 192.168.100.14')
-    """
-    rsuc1.cmd('ip ro add 10.0.2.0/24 via 192.168.100.6')
-    rsuc2.cmd('ip ro add 10.0.1.0/24 via 192.168.100.14')
+    for i in range(cantidad_sucursales):
+        n = i + 1
+        rcdireccion = 6 + i*8
+        rsucdireccion = 1 + i*8
+        globals()['h1suc%s'%n].cmd('ip route add 10.0.0.0/21 via 10.0.%s.1'%n)
+        rcentral.cmd('ip ro add 10.0.%s.0/24 via 192.168.100.%s'%(n,rsucdireccion))
+        globals()['rsuc%s'%n].cmd('ip ro add 10.0.0/21 via 192.168.100.%s'%rcdireccion)
 
     CLI(net)
     net.stop()
 
-if _name_ == '_main_':
+if __name__ == "__main__":
     setLogLevel( 'info' )
     myNetwork()
