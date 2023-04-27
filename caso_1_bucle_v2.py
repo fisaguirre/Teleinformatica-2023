@@ -11,21 +11,22 @@ from mininet.link import TCLink, Intf
 from subprocess import call
 import math
 
+"""
+Se pueden crear n sucursales dentro de la red WAN 
+"""
 def myNetwork():
 
     net = Mininet( topo=None,
                    build=False,
-                   ipBase='10.0.0.0/8')
+                   ipBase='192.168.100.0/16')
+#                   ipBase='10.0.0.0/8')
 
-    #cantidad_sucursales = 12
     cantidad_sucursales = input("Agregue la cantidad de sucursales: ")
     mascara_red_host = 24
     mascara_router = 29
 
     mascara_sub_red_host = 32 - (math.log(cantidad_sucursales,2) + 8)
     mascara_sub_red_host = int(mascara_sub_red_host)
-    # Se imprime la mascara de subred resultante
-    #print("La mascara de subred adecuada es /{}".format(mascara_sub_red_host))
 
     info( '* Adding controller\n' )
     info( '* Add switches\n')
@@ -48,7 +49,6 @@ def myNetwork():
     for i in range(cantidad_sucursales):
         i = i + 1
         globals()['h1suc%s' %i] = net.addHost('h1suc%s' %i, cls=Host, ip='10.0.%s.2/%s' %(i,mascara_red_host), defaultRoute=None)
-    print("esto es: ", globals()['h1suc2'])
 
     info( '* Add links\n')
     #Agregamos el link, ponemos nombre a la interfaz y le agregamos una IP.
@@ -85,10 +85,13 @@ def myNetwork():
         net['h1suc%s'%n].cmd('ip route add 10.0.0.0/%s via 10.0.%s.1'%(mascara_sub_red_host,n))
         net['rcentral'].cmd('ip ro add 10.0.%s.0/%s via 192.168.100.%s'%(n,mascara_red_host,rsucdireccion))
         net['rsuc%s'%n].cmd('ip ro add 10.0.0/%s via 192.168.100.%s'%(mascara_sub_red_host,rcdireccion))
-
+        
+        
+    
     CLI(net)
     net.stop()
 
 if __name__ == "__main__":
     setLogLevel( 'info' )
     myNetwork()
+
